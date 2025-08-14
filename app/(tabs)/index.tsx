@@ -22,7 +22,7 @@ export default function HomeScreen() {
 
     const [company, setCompany] = useState('');
     const [position, setPosition] = useState('');
-    const [status, setStatus] = useState('Applied');
+    const [status, setStatus] = useState<Status>('Applied');
     const [dateApplied, setDateApplied] = useState(new Date());
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [notes, setNotes] = useState('');
@@ -71,10 +71,17 @@ export default function HomeScreen() {
         };
 
         if (editingId) {
-            updateApplication(applicationData);
+            updateApplication(editingId, {
+                company,
+                position,
+                status,
+                dateApplied: dateApplied.toISOString().split('T')[0],
+                notes: notes.trim() || undefined,
+            });
         } else {
             addApplication(applicationData);
         }
+
         resetForm();
         setIsFormVisible(false);
     };

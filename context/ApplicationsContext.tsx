@@ -1,17 +1,20 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 
+export type Status = 'Applied' | 'Interview' | 'Offer' | 'Rejected';
+
 export type Application = {
     id: string;
     company: string;
     position: string;
-    status: 'Applied' | 'Interview' | 'Offer' | 'Rejected';
-    date?: string;
+    status: Status;
+    dateApplied: string;
+    notes?: string;
 };
 
 type ApplicationsContextType = {
     applications: Application[];
     addApplication: (app: Application) => void;
-    editApplication: (id: string, updated: Partial<Application>) => void;
+    updateApplication: (id: string, updated: Partial<Application>) => void;
     deleteApplication: (id: string) => void;
 };
 
@@ -24,7 +27,7 @@ export const ApplicationsProvider = ({ children }: { children: ReactNode }) => {
         setApplications(prev => [...prev, app]);
     };
 
-    const editApplication = (id: string, updated: Partial<Application>) => {
+    const updateApplication = (id: string, updated: Partial<Application>) => {
         setApplications(prev =>
             prev.map(app => (app.id === id ? { ...app, ...updated } : app))
         );
@@ -35,7 +38,9 @@ export const ApplicationsProvider = ({ children }: { children: ReactNode }) => {
     };
 
     return (
-        <ApplicationsContext.Provider value={{ applications, addApplication, editApplication, deleteApplication }}>
+        <ApplicationsContext.Provider
+            value={{ applications, addApplication, updateApplication, deleteApplication }}
+        >
             {children}
         </ApplicationsContext.Provider>
     );

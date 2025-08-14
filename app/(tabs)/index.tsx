@@ -13,9 +13,22 @@ import {
     ScrollView,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { Swipeable } from 'react-native-gesture-handler';
 import { useApplications } from '@/context/ApplicationsContext';
+import { Feather } from '@expo/vector-icons'; // Added icons
 
-const STATUS_OPTIONS = ['Applied', 'Interview', 'Offer', 'Rejected'];
+type Status = 'Applied' | 'Interview' | 'Offer' | 'Rejected';
+
+interface Application {
+    id: string;
+    company: string;
+    position: string;
+    status: Status;
+    dateApplied: string;
+    notes?: string;
+}
+
+const STATUS_OPTIONS: Status[] = ['Applied', 'Interview', 'Offer', 'Rejected'];
 
 export default function HomeScreen() {
     const { applications, addApplication, updateApplication, deleteApplication } = useApplications();
@@ -28,7 +41,6 @@ export default function HomeScreen() {
     const [notes, setNotes] = useState('');
     const [editingId, setEditingId] = useState<string | null>(null);
     const [isFormVisible, setIsFormVisible] = useState(false);
-
     const [statusDropdownVisible, setStatusDropdownVisible] = useState(false);
 
     const resetForm = () => {
@@ -45,7 +57,7 @@ export default function HomeScreen() {
         setIsFormVisible(true);
     };
 
-    const openFormForEdit = (app: any) => {
+    const openFormForEdit = (app: Application) => {
         setCompany(app.company);
         setPosition(app.position);
         setStatus(app.status);
@@ -61,7 +73,7 @@ export default function HomeScreen() {
             return;
         }
 
-        const applicationData = {
+        const appData: Application = {
             id: editingId || Date.now().toString(),
             company,
             position,
@@ -71,15 +83,9 @@ export default function HomeScreen() {
         };
 
         if (editingId) {
-            updateApplication(editingId, {
-                company,
-                position,
-                status,
-                dateApplied: dateApplied.toISOString().split('T')[0],
-                notes: notes.trim() || undefined,
-            });
+            updateApplication(editingId, appData);
         } else {
-            addApplication(applicationData);
+            addApplication(appData);
         }
 
         resetForm();
@@ -93,7 +99,6 @@ export default function HomeScreen() {
         ]);
     };
 
-    // Status dropdown modal
     const renderStatusDropdown = () => (
         <Modal transparent visible={statusDropdownVisible} animationType="fade">
             <TouchableWithoutFeedback onPress={() => setStatusDropdownVisible(false)}>
@@ -103,14 +108,14 @@ export default function HomeScreen() {
                             {STATUS_OPTIONS.map((option) => (
                                 <TouchableOpacity
                                     key={option}
-                                    onPress={() => {
-                                        setStatus(option);
-                                        setStatusDropdownVisible(false);
-                                    }}
                                     style={[
                                         styles.dropdownItem,
                                         option === status && styles.dropdownItemSelected,
                                     ]}
+                                    onPress={() => {
+                                        setStatus(option);
+                                        setStatusDropdownVisible(false);
+                                    }}
                                 >
                                     <Text
                                         style={[
@@ -129,7 +134,6 @@ export default function HomeScreen() {
         </Modal>
     );
 
-    // FORM JSX
     const renderForm = () => (
         <View style={styles.form}>
             <Text style={styles.title}>{editingId ? 'Edit Application' : 'Add Application'}</Text>
@@ -137,14 +141,10 @@ export default function HomeScreen() {
             <TextInput placeholder="Company" value={company} onChangeText={setCompany} style={styles.input} />
             <TextInput placeholder="Position" value={position} onChangeText={setPosition} style={styles.input} />
 
-            {/* Row for Status and Date */}
             <View style={styles.row}>
                 <View style={styles.flex1}>
                     <Text style={styles.label}>Status</Text>
-                    <TouchableOpacity
-                        style={styles.statusButton}
-                        onPress={() => setStatusDropdownVisible(true)}
-                    >
+                    <TouchableOpacity style={styles.statusButton} onPress={() => setStatusDropdownVisible(true)}>
                         <Text style={styles.statusButtonText}>{status}</Text>
                     </TouchableOpacity>
                     {renderStatusDropdown()}
@@ -200,7 +200,17 @@ export default function HomeScreen() {
         </View>
     );
 
-    // APPLICATIONS LIST JSX
+    const renderSwipeActions = (app: Application) => (
+        <View style={styles.actionsContainer}>
+            <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#34C759' }]} onPress={() => openFormForEdit(app)}>
+                <Feather name="edit-2" size={24} color="#fff" />
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#FF3B30' }]} onPress={() => confirmDelete(app.id)}>
+                <Feather name="trash" size={24} color="#fff" />
+            </TouchableOpacity>
+        </View>
+    );
+
     const renderList = () => (
         <View style={{ flex: 1 }}>
             <Text style={styles.title}>Job Application Tracker</Text>
@@ -210,32 +220,24 @@ export default function HomeScreen() {
             </TouchableOpacity>
 
             {applications.length === 0 ? (
-                <Text style={{ textAlign: 'center', marginTop: 40, fontSize: 16, color: '#666' }}>
-                    No applications yet.
-                </Text>
+                <Text style={styles.emptyText}>No applications yet.</Text>
             ) : (
                 <FlatList
                     data={applications}
                     keyExtractor={(item) => item.id}
                     renderItem={({ item }) => (
-                        <View style={styles.card}>
-                            <View style={{ flex: 1 }}>
-                                <Text style={styles.cardTitle}>
-                                    {item.company} - {item.position}
-                                </Text>
-                                <Text>Status: {item.status}</Text>
-                                <Text>Date: {item.dateApplied}</Text>
-                                {item.notes && <Text>Notes: {item.notes}</Text>}
+                        <Swipeable renderRightActions={() => renderSwipeActions(item)}>
+                            <View style={styles.card}>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.cardTitle}>
+                                        {item.company} - {item.position}
+                                    </Text>
+                                    <Text>Status: {item.status}</Text>
+                                    <Text>Date: {item.dateApplied}</Text>
+                                    {item.notes && <Text>Notes: {item.notes}</Text>}
+                                </View>
                             </View>
-                            <View style={styles.cardButtons}>
-                                <TouchableOpacity style={styles.editButton} onPress={() => openFormForEdit(item)}>
-                                    <Text style={styles.buttonText}>Edit</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity style={styles.deleteButton} onPress={() => confirmDelete(item.id)}>
-                                    <Text style={styles.buttonText}>Del</Text>
-                                </TouchableOpacity>
-                            </View>
-                        </View>
+                        </Swipeable>
                     )}
                     style={{ marginTop: 20 }}
                 />
@@ -257,6 +259,7 @@ const styles = StyleSheet.create({
         marginBottom: 16,
     },
     addButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 18 },
+    emptyText: { textAlign: 'center', marginTop: 40, fontSize: 16, color: '#666' },
     form: { backgroundColor: '#fff', padding: 16, borderRadius: 8 },
     input: {
         borderWidth: 1,
@@ -313,18 +316,6 @@ const styles = StyleSheet.create({
         marginBottom: 10,
     },
     cardTitle: { fontWeight: 'bold', fontSize: 16 },
-    cardButtons: { flexDirection: 'row', alignItems: 'center' },
-    editButton: {
-        backgroundColor: '#34C759',
-        padding: 8,
-        borderRadius: 6,
-        marginRight: 6,
-    },
-    deleteButton: {
-        backgroundColor: '#FF3B30',
-        padding: 8,
-        borderRadius: 6,
-    },
     modalOverlay: {
         flex: 1,
         backgroundColor: 'rgba(0,0,0,0.3)',
@@ -351,5 +342,17 @@ const styles = StyleSheet.create({
     dropdownItemTextSelected: {
         color: '#fff',
         fontWeight: 'bold',
+    },
+    actionsContainer: {
+        flexDirection: 'row',
+        height: '100%',
+    },
+    actionButton: {
+        width: 60,
+        justifyContent: 'center',
+        alignItems: 'center',
+        height: '88%',
+        marginVertical: '0%',
+        borderRadius: 8,
     },
 });

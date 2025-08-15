@@ -15,7 +15,7 @@ import {
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Swipeable } from 'react-native-gesture-handler';
 import { useApplications } from '@/context/ApplicationsContext';
-import { Feather } from '@expo/vector-icons'; // Added icons
+import { Feather } from '@expo/vector-icons';
 
 type Status = 'Applied' | 'Interview' | 'Offer' | 'Rejected';
 
@@ -42,6 +42,12 @@ export default function HomeScreen() {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [isFormVisible, setIsFormVisible] = useState(false);
     const [statusDropdownVisible, setStatusDropdownVisible] = useState(false);
+
+    // NEW: Sort & filter states
+    const [filterStatus, setFilterStatus] = useState<Status | 'All'>('All');
+    const [sortBy, setSortBy] = useState<'date' | 'company'>('date');
+    const [sortDropdownVisible, setSortDropdownVisible] = useState(false);
+    const [filterDropdownVisible, setFilterDropdownVisible] = useState(false);
 
     const resetForm = () => {
         setCompany('');
@@ -99,6 +105,24 @@ export default function HomeScreen() {
         ]);
     };
 
+    // NEW: Get filtered & sorted list
+    const getFilteredAndSortedApps = () => {
+        let filtered = applications;
+        if (filterStatus !== 'All') {
+            filtered = filtered.filter(app => app.status === filterStatus);
+        }
+
+        return filtered.sort((a, b) => {
+            if (sortBy === 'date') {
+                return new Date(b.dateApplied).getTime() - new Date(a.dateApplied).getTime();
+            }
+            if (sortBy === 'company') {
+                return a.company.localeCompare(b.company);
+            }
+            return 0;
+        });
+    };
+
     const renderStatusDropdown = () => (
         <Modal transparent visible={statusDropdownVisible} animationType="fade">
             <TouchableWithoutFeedback onPress={() => setStatusDropdownVisible(false)}>
@@ -128,6 +152,76 @@ export default function HomeScreen() {
                                 </TouchableOpacity>
                             ))}
                         </ScrollView>
+                    </View>
+                </View>
+            </TouchableWithoutFeedback>
+        </Modal>
+    );
+
+    // NEW: Filter dropdown
+    const renderFilterDropdown = () => (
+        <Modal transparent visible={filterDropdownVisible} animationType="fade">
+            <TouchableWithoutFeedback onPress={() => setFilterDropdownVisible(false)}>
+                <View style={styles.modalOverlay}>
+                    <View style={styles.dropdown}>
+                        {['All', ...STATUS_OPTIONS].map((option) => (
+                            <TouchableOpacity
+                                key={option}
+                                style={[
+                                    styles.dropdownItem,
+                                    option === filterStatus && styles.dropdownItemSelected,
+                                ]}
+                                onPress={() => {
+                                    setFilterStatus(option as Status | 'All');
+                                    setFilterDropdownVisible(false);
+                                }}
+                            >
+                                <Text
+                                    style={[
+                                        styles.dropdownItemText,
+                                        option === filterStatus && styles.dropdownItemTextSelected,
+                                    ]}
+                                >
+                                    {option}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+                </View>
+            </TouchableWithoutFeedback>
+        </Modal>
+    );
+
+    const renderSortDropdown = () => (
+        <Modal transparent visible={sortDropdownVisible} animationType="fade">
+            <TouchableWithoutFeedback onPress={() => setSortDropdownVisible(false)}>
+                <View style={styles.modalOverlay}>
+                    <View style={styles.dropdown}>
+                        {[
+                            { label: 'Date Applied', value: 'date' },
+                            { label: 'Company', value: 'company' },
+                        ].map((option) => (
+                            <TouchableOpacity
+                                key={option.value}
+                                style={[
+                                    styles.dropdownItem,
+                                    option.value === sortBy && styles.dropdownItemSelected,
+                                ]}
+                                onPress={() => {
+                                    setSortBy(option.value as 'date' | 'company');
+                                    setSortDropdownVisible(false);
+                                }}
+                            >
+                                <Text
+                                    style={[
+                                        styles.dropdownItemText,
+                                        option.value === sortBy && styles.dropdownItemTextSelected,
+                                    ]}
+                                >
+                                    {option.label}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
                     </View>
                 </View>
             </TouchableWithoutFeedback>
@@ -213,17 +307,28 @@ export default function HomeScreen() {
 
     const renderList = () => (
         <View style={{ flex: 1 }}>
-            <Text style={styles.title}>Job Application Tracker</Text>
-
             <TouchableOpacity style={styles.addButton} onPress={openFormForAdd}>
                 <Text style={styles.addButtonText}>+ Add Application</Text>
             </TouchableOpacity>
+            <View style={styles.sortFilterRow}>
+                <TouchableOpacity style={styles.sortFilterButton} onPress={() => setFilterDropdownVisible(true)}>
+                    <Text style={styles.sortFilterText}>Filter: {filterStatus}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.sortFilterButton} onPress={() => setSortDropdownVisible(true)}>
+                    <Text style={styles.sortFilterText}>
+                        Sort: {sortBy === 'date' ? 'Date Applied' : 'Company'}
+                    </Text>
+                </TouchableOpacity>
+            </View>
+
+            {renderFilterDropdown()}
+            {renderSortDropdown()}
 
             {applications.length === 0 ? (
                 <Text style={styles.emptyText}>No applications yet.</Text>
             ) : (
                 <FlatList
-                    data={applications}
+                    data={getFilteredAndSortedApps()}
                     keyExtractor={(item) => item.id}
                     renderItem={({ item }) => (
                         <Swipeable renderRightActions={() => renderSwipeActions(item)}>
@@ -239,7 +344,7 @@ export default function HomeScreen() {
                             </View>
                         </Swipeable>
                     )}
-                    style={{ marginTop: 20 }}
+                    style={{ marginTop: 10 }}
                 />
             )}
         </View>
@@ -256,7 +361,7 @@ const styles = StyleSheet.create({
         paddingVertical: 12,
         borderRadius: 8,
         alignItems: 'center',
-        marginBottom: 16,
+        marginBottom: 10,
     },
     addButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 18 },
     emptyText: { textAlign: 'center', marginTop: 40, fontSize: 16, color: '#666' },
@@ -325,19 +430,19 @@ const styles = StyleSheet.create({
     dropdown: {
         backgroundColor: '#fff',
         borderRadius: 8,
-        maxHeight: 200,
+        paddingVertical: 8,
+        minWidth: 180,
+        maxHeight: 300,
     },
     dropdownItem: {
-        padding: 14,
-        borderBottomWidth: 1,
-        borderBottomColor: '#eee',
+        paddingVertical: 10,
+        paddingHorizontal: 16,
     },
     dropdownItemSelected: {
         backgroundColor: '#007AFF',
     },
     dropdownItemText: {
         fontSize: 16,
-        color: '#000',
     },
     dropdownItemTextSelected: {
         color: '#fff',
@@ -354,5 +459,21 @@ const styles = StyleSheet.create({
         height: '88%',
         marginVertical: '0%',
         borderRadius: 8,
+    },
+    sortFilterRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 10,
+    },
+    sortFilterButton: {
+        flex: 1,
+        padding: 10,
+        borderRadius: 8,
+        backgroundColor: '#eee',
+        marginHorizontal: 4,
+    },
+    sortFilterText: {
+        textAlign: 'center',
+        fontWeight: '600',
     },
 });

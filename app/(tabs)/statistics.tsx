@@ -24,8 +24,6 @@ export default function StatisticsScreen() {
     return (
         <SafeAreaView style={styles.safeArea}>
             <View style={styles.container}>
-                <Text style={styles.title}>📊 Job Application Statistics</Text>
-
                 {total === 0 ? (
                     <Text style={styles.noDataText}>No applications yet.</Text>
                 ) : (

@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+﻿import React, { useState, useMemo } from 'react';
 import {
     SafeAreaView,
     View,
@@ -42,12 +42,12 @@ export default function HomeScreen() {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [isFormVisible, setIsFormVisible] = useState(false);
     const [statusDropdownVisible, setStatusDropdownVisible] = useState(false);
-
-    // NEW: Sort & filter states
     const [filterStatus, setFilterStatus] = useState<Status | 'All'>('All');
     const [sortBy, setSortBy] = useState<'date' | 'company'>('date');
     const [sortDropdownVisible, setSortDropdownVisible] = useState(false);
     const [filterDropdownVisible, setFilterDropdownVisible] = useState(false);
+    const [searchText, setSearchText] = useState("");
+    const [searchQuery, setSearchQuery] = useState("");
 
     const resetForm = () => {
         setCompany('');
@@ -105,65 +105,73 @@ export default function HomeScreen() {
         ]);
     };
 
-    // NEW: Get filtered & sorted list
-    const getFilteredAndSortedApps = () => {
+    const filteredSortedSearchedApps = useMemo(() => {
         let filtered = applications;
+
         if (filterStatus !== 'All') {
             filtered = filtered.filter(app => app.status === filterStatus);
         }
 
-        return filtered.sort((a, b) => {
+        if (searchQuery.trim() !== '') {
+            filtered = filtered.filter(app =>
+                app.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                app.position.toLowerCase().includes(searchQuery.toLowerCase())
+            );
+        }
+
+        filtered.sort((a, b) => {
             if (sortBy === 'date') {
                 return new Date(b.dateApplied).getTime() - new Date(a.dateApplied).getTime();
-            }
-            if (sortBy === 'company') {
+            } else if (sortBy === 'company') {
                 return a.company.localeCompare(b.company);
             }
             return 0;
         });
+
+        return filtered;
+    }, [applications, filterStatus, searchQuery, sortBy]);
+
+
+    const renderStatusDropdown = () => {
+        if (!statusDropdownVisible) return null;
+
+        return (
+            <View style={[styles.dropdownContainer, { position: 'absolute', zIndex: 999 }]}>
+                <ScrollView style={styles.dropdown}>
+                    {STATUS_OPTIONS.map((option) => (
+                        <TouchableOpacity
+                            key={option}
+                            style={[
+                                styles.dropdownItem,
+                                option === status && styles.dropdownItemSelected,
+                            ]}
+                            onPress={() => {
+                                setStatus(option);
+                                setStatusDropdownVisible(false);
+                            }}
+                        >
+                            <Text
+                                style={[
+                                    styles.dropdownItemText,
+                                    option === status && styles.dropdownItemTextSelected,
+                                ]}
+                            >
+                                {option}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
+                </ScrollView>
+            </View>
+        );
     };
 
-    const renderStatusDropdown = () => (
-        <Modal transparent visible={statusDropdownVisible} animationType="fade">
-            <TouchableWithoutFeedback onPress={() => setStatusDropdownVisible(false)}>
-                <View style={styles.modalOverlay}>
-                    <View style={styles.dropdown}>
-                        <ScrollView>
-                            {STATUS_OPTIONS.map((option) => (
-                                <TouchableOpacity
-                                    key={option}
-                                    style={[
-                                        styles.dropdownItem,
-                                        option === status && styles.dropdownItemSelected,
-                                    ]}
-                                    onPress={() => {
-                                        setStatus(option);
-                                        setStatusDropdownVisible(false);
-                                    }}
-                                >
-                                    <Text
-                                        style={[
-                                            styles.dropdownItemText,
-                                            option === status && styles.dropdownItemTextSelected,
-                                        ]}
-                                    >
-                                        {option}
-                                    </Text>
-                                </TouchableOpacity>
-                            ))}
-                        </ScrollView>
-                    </View>
-                </View>
-            </TouchableWithoutFeedback>
-        </Modal>
-    );
+    const renderFilterDropdown = () => {
+        if (!filterDropdownVisible) return null;
 
-    // NEW: Filter dropdown
-    const renderFilterDropdown = () => (
-        <Modal transparent visible={filterDropdownVisible} animationType="fade">
-            <TouchableWithoutFeedback onPress={() => setFilterDropdownVisible(false)}>
-                <View style={styles.modalOverlay}>
-                    <View style={styles.dropdown}>
+        return (
+            <View style={styles.dropdownWrapper}>
+                <View style={styles.dropdownContainer}>
+                    <ScrollView style={styles.dropdown}>
                         {['All', ...STATUS_OPTIONS].map((option) => (
                             <TouchableOpacity
                                 key={option}
@@ -186,17 +194,20 @@ export default function HomeScreen() {
                                 </Text>
                             </TouchableOpacity>
                         ))}
-                    </View>
+                    </ScrollView>
                 </View>
-            </TouchableWithoutFeedback>
-        </Modal>
-    );
+            </View>
+        );
+    };
 
-    const renderSortDropdown = () => (
-        <Modal transparent visible={sortDropdownVisible} animationType="fade">
-            <TouchableWithoutFeedback onPress={() => setSortDropdownVisible(false)}>
-                <View style={styles.modalOverlay}>
-                    <View style={styles.dropdown}>
+
+    const renderSortDropdown = () => {
+        if (!sortDropdownVisible) return null;
+
+        return (
+            <View style={styles.dropdownWrapper}>
+                <View style={styles.dropdownContainer}>
+                    <ScrollView style={styles.dropdown}>
                         {[
                             { label: 'Date Applied', value: 'date' },
                             { label: 'Company', value: 'company' },
@@ -222,14 +233,15 @@ export default function HomeScreen() {
                                 </Text>
                             </TouchableOpacity>
                         ))}
-                    </View>
+                    </ScrollView>
                 </View>
-            </TouchableWithoutFeedback>
-        </Modal>
-    );
+            </View>
+        );
+    };
 
     const renderForm = () => (
         <View style={styles.form}>
+
             <Text style={styles.title}>{editingId ? 'Edit Application' : 'Add Application'}</Text>
 
             <TextInput placeholder="Company" value={company} onChangeText={setCompany} style={styles.input} />
@@ -310,11 +322,32 @@ export default function HomeScreen() {
             <TouchableOpacity style={styles.addButton} onPress={openFormForAdd}>
                 <Text style={styles.addButtonText}>+ Add Application</Text>
             </TouchableOpacity>
+
+            <TextInput
+                placeholder="Search by company or position"
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                style={[styles.input, { marginBottom: 16 }]}
+            />
+
             <View style={styles.sortFilterRow}>
-                <TouchableOpacity style={styles.sortFilterButton} onPress={() => setFilterDropdownVisible(true)}>
+                <TouchableOpacity
+                    style={styles.sortFilterButton}
+                    onPress={() => {
+                        setFilterDropdownVisible(true);
+                        setSortDropdownVisible(false);
+                    }}
+                >
                     <Text style={styles.sortFilterText}>Filter: {filterStatus}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.sortFilterButton} onPress={() => setSortDropdownVisible(true)}>
+
+                <TouchableOpacity
+                    style={styles.sortFilterButton}
+                    onPress={() => {
+                        setSortDropdownVisible(true);
+                        setFilterDropdownVisible(false);
+                    }}
+                >
                     <Text style={styles.sortFilterText}>
                         Sort: {sortBy === 'date' ? 'Date Applied' : 'Company'}
                     </Text>
@@ -324,11 +357,11 @@ export default function HomeScreen() {
             {renderFilterDropdown()}
             {renderSortDropdown()}
 
-            {applications.length === 0 ? (
-                <Text style={styles.emptyText}>No applications yet.</Text>
+            {filteredSortedSearchedApps.length === 0 ? (
+                <Text style={styles.emptyText}>No applications found.</Text>
             ) : (
                 <FlatList
-                    data={getFilteredAndSortedApps()}
+                        data={filteredSortedSearchedApps}
                     keyExtractor={(item) => item.id}
                     renderItem={({ item }) => (
                         <Swipeable renderRightActions={() => renderSwipeActions(item)}>
@@ -337,9 +370,9 @@ export default function HomeScreen() {
                                     <Text style={styles.cardTitle}>
                                         {item.company} - {item.position}
                                     </Text>
-                                    <Text>Status: {item.status}</Text>
-                                    <Text>Date: {item.dateApplied}</Text>
-                                    {item.notes && <Text>Notes: {item.notes}</Text>}
+                                    <Text>{item.status}</Text>
+                                    <Text>{item.dateApplied}</Text>
+                                    {item.notes && <Text>{item.notes}</Text>}
                                 </View>
                             </View>
                         </Swipeable>
@@ -413,12 +446,15 @@ const styles = StyleSheet.create({
     card: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        padding: 12,
+        padding: 16,
+        marginBottom: 10,
         backgroundColor: '#fff',
         borderRadius: 8,
-        borderWidth: 1,
-        borderColor: '#ddd',
-        marginBottom: 10,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2,
     },
     cardTitle: { fontWeight: 'bold', fontSize: 16 },
     modalOverlay: {
@@ -427,16 +463,35 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         paddingHorizontal: 40,
     },
-    dropdown: {
+    dropdownWrapper: {
+        position: 'relative',
+        width: '100%',
+    },
+
+    dropdownContainer: {
+        position: 'absolute',
+        top: '100%',
+        left: 0,
+        right: 0,
+        zIndex: 1000,
         backgroundColor: '#fff',
         borderRadius: 8,
-        paddingVertical: 8,
-        minWidth: 180,
-        maxHeight: 300,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 5,
+        maxHeight: 150,
+    },
+    dropdown: {
+        maxHeight: 150,
+        borderWidth: 1,
+        borderColor: '#ccc',
+        borderRadius: 8,
+        backgroundColor: '#fff',
     },
     dropdownItem: {
-        paddingVertical: 10,
-        paddingHorizontal: 16,
+        padding: 12,
     },
     dropdownItemSelected: {
         backgroundColor: '#007AFF',

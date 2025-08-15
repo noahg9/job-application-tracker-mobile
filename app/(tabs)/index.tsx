@@ -1,6 +1,5 @@
 ﻿import React, { useState, useMemo } from 'react';
 import {
-    SafeAreaView,
     View,
     Text,
     TextInput,
@@ -8,14 +7,13 @@ import {
     StyleSheet,
     TouchableOpacity,
     Alert,
-    Modal,
-    TouchableWithoutFeedback,
     ScrollView,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Swipeable } from 'react-native-gesture-handler';
 import { useApplications } from '@/context/ApplicationsContext';
 import { Feather } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 type Status = 'Applied' | 'Interview' | 'Offer' | 'Rejected';
 
@@ -46,8 +44,7 @@ export default function HomeScreen() {
     const [sortBy, setSortBy] = useState<'date' | 'company'>('date');
     const [sortDropdownVisible, setSortDropdownVisible] = useState(false);
     const [filterDropdownVisible, setFilterDropdownVisible] = useState(false);
-    const [searchText, setSearchText] = useState("");
-    const [searchQuery, setSearchQuery] = useState("");
+    const [searchQuery, setSearchQuery] = useState('');
 
     const resetForm = () => {
         setCompany('');
@@ -113,54 +110,50 @@ export default function HomeScreen() {
         }
 
         if (searchQuery.trim() !== '') {
-            filtered = filtered.filter(app =>
-                app.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                app.position.toLowerCase().includes(searchQuery.toLowerCase())
+            const q = searchQuery.toLowerCase();
+            filtered = filtered.filter(
+                app => app.company.toLowerCase().includes(q) || app.position.toLowerCase().includes(q),
             );
         }
 
         filtered.sort((a, b) => {
             if (sortBy === 'date') {
                 return new Date(b.dateApplied).getTime() - new Date(a.dateApplied).getTime();
-            } else if (sortBy === 'company') {
-                return a.company.localeCompare(b.company);
             }
-            return 0;
+            return a.company.localeCompare(b.company);
         });
 
         return filtered;
     }, [applications, filterStatus, searchQuery, sortBy]);
 
-
     const renderStatusDropdown = () => {
         if (!statusDropdownVisible) return null;
 
         return (
-            <View style={[styles.dropdownContainer, { position: 'absolute', zIndex: 999 }]}>
-                <ScrollView style={styles.dropdown}>
-                    {STATUS_OPTIONS.map((option) => (
-                        <TouchableOpacity
-                            key={option}
-                            style={[
-                                styles.dropdownItem,
-                                option === status && styles.dropdownItemSelected,
-                            ]}
-                            onPress={() => {
-                                setStatus(option);
-                                setStatusDropdownVisible(false);
-                            }}
-                        >
-                            <Text
-                                style={[
-                                    styles.dropdownItemText,
-                                    option === status && styles.dropdownItemTextSelected,
-                                ]}
+            <View style={styles.dropdownWrapper}>
+                <View style={styles.dropdownContainer}>
+                    <ScrollView style={styles.dropdown}>
+                        {STATUS_OPTIONS.map(option => (
+                            <TouchableOpacity
+                                key={option}
+                                style={[styles.dropdownItem, option === status && styles.dropdownItemSelected]}
+                                onPress={() => {
+                                    setStatus(option);
+                                    setStatusDropdownVisible(false);
+                                }}
                             >
-                                {option}
-                            </Text>
-                        </TouchableOpacity>
-                    ))}
-                </ScrollView>
+                                <Text
+                                    style={[
+                                        styles.dropdownItemText,
+                                        option === status && styles.dropdownItemTextSelected,
+                                    ]}
+                                >
+                                    {option}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
+                </View>
             </View>
         );
     };
@@ -172,7 +165,7 @@ export default function HomeScreen() {
             <View style={styles.dropdownWrapper}>
                 <View style={styles.dropdownContainer}>
                     <ScrollView style={styles.dropdown}>
-                        {['All', ...STATUS_OPTIONS].map((option) => (
+                        {(['All', ...STATUS_OPTIONS] as (Status | 'All')[]).map(option => (
                             <TouchableOpacity
                                 key={option}
                                 style={[
@@ -180,7 +173,7 @@ export default function HomeScreen() {
                                     option === filterStatus && styles.dropdownItemSelected,
                                 ]}
                                 onPress={() => {
-                                    setFilterStatus(option as Status | 'All');
+                                    setFilterStatus(option);
                                     setFilterDropdownVisible(false);
                                 }}
                             >
@@ -200,7 +193,6 @@ export default function HomeScreen() {
         );
     };
 
-
     const renderSortDropdown = () => {
         if (!sortDropdownVisible) return null;
 
@@ -211,13 +203,10 @@ export default function HomeScreen() {
                         {[
                             { label: 'Date Applied', value: 'date' },
                             { label: 'Company', value: 'company' },
-                        ].map((option) => (
+                        ].map(option => (
                             <TouchableOpacity
                                 key={option.value}
-                                style={[
-                                    styles.dropdownItem,
-                                    option.value === sortBy && styles.dropdownItemSelected,
-                                ]}
+                                style={[styles.dropdownItem, option.value === sortBy && styles.dropdownItemSelected]}
                                 onPress={() => {
                                     setSortBy(option.value as 'date' | 'company');
                                     setSortDropdownVisible(false);
@@ -240,68 +229,69 @@ export default function HomeScreen() {
     };
 
     const renderForm = () => (
-        <View style={styles.form}>
+        <View style={styles.container}>
+            <View style={styles.form}>
+                <Text style={styles.title}>{editingId ? 'Edit Application' : 'Add Application'}</Text>
 
-            <Text style={styles.title}>{editingId ? 'Edit Application' : 'Add Application'}</Text>
+                <TextInput placeholder="Company" value={company} onChangeText={setCompany} style={styles.input} />
+                <TextInput placeholder="Position" value={position} onChangeText={setPosition} style={styles.input} />
 
-            <TextInput placeholder="Company" value={company} onChangeText={setCompany} style={styles.input} />
-            <TextInput placeholder="Position" value={position} onChangeText={setPosition} style={styles.input} />
+                <View style={styles.row}>
+                    <View style={styles.flex1}>
+                        <Text style={styles.label}>Status</Text>
+                        <TouchableOpacity style={styles.statusButton} onPress={() => setStatusDropdownVisible(true)}>
+                            <Text style={styles.statusButtonText}>{status}</Text>
+                        </TouchableOpacity>
+                        {renderStatusDropdown()}
+                    </View>
 
-            <View style={styles.row}>
-                <View style={styles.flex1}>
-                    <Text style={styles.label}>Status</Text>
-                    <TouchableOpacity style={styles.statusButton} onPress={() => setStatusDropdownVisible(true)}>
-                        <Text style={styles.statusButtonText}>{status}</Text>
-                    </TouchableOpacity>
-                    {renderStatusDropdown()}
+                    <View style={[styles.flex1, { marginLeft: 12 }]}>
+                        <Text style={styles.label}>Date Applied</Text>
+                        <TouchableOpacity style={styles.dateButton} onPress={() => setShowDatePicker(true)}>
+                            <Text style={styles.dateButtonText}>{dateApplied.toDateString()}</Text>
+                        </TouchableOpacity>
+                    </View>
                 </View>
 
-                <View style={[styles.flex1, { marginLeft: 12 }]}>
-                    <Text style={styles.label}>Date Applied</Text>
-                    <TouchableOpacity style={styles.dateButton} onPress={() => setShowDatePicker(true)}>
-                        <Text style={styles.dateButtonText}>{dateApplied.toDateString()}</Text>
-                    </TouchableOpacity>
-                </View>
-            </View>
+                {showDatePicker && (
+                    <DateTimePicker
+                        value={dateApplied}
+                        mode="date"
+                        display="spinner"
+                        onChange={(event, selectedDate) => {
+                            setShowDatePicker(false);
+                            if (selectedDate) setDateApplied(selectedDate);
+                        }}
+                        style={{ backgroundColor: '#fff' }}
+                    />
+                )}
 
-            {showDatePicker && (
-                <DateTimePicker
-                    value={dateApplied}
-                    mode="date"
-                    display="spinner"
-                    onChange={(event, selectedDate) => {
-                        setShowDatePicker(false);
-                        if (selectedDate) setDateApplied(selectedDate);
-                    }}
-                    style={{ backgroundColor: '#fff' }}
+                <TextInput
+                    placeholder="Notes (optional)"
+                    value={notes}
+                    onChangeText={setNotes}
+                    style={[styles.input, styles.notesInput]}
+                    multiline
                 />
-            )}
 
-            <TextInput
-                placeholder="Notes (optional)"
-                value={notes}
-                onChangeText={setNotes}
-                style={[styles.input, styles.notesInput]}
-                multiline
-            />
+                <View style={styles.buttonRow}>
+                    <TouchableOpacity
+                        style={[styles.saveButton, { backgroundColor: editingId ? '#34C759' : '#007AFF' }]}
+                        onPress={handleSave}
+                    >
+                        <Text style={styles.buttonText}>{editingId ? 'Update' : 'Add'}</Text>
+                    </TouchableOpacity>
 
-            <View style={styles.buttonRow}>
-                <TouchableOpacity
-                    style={[styles.saveButton, { backgroundColor: editingId ? '#34C759' : '#007AFF' }]}
-                    onPress={handleSave}
-                >
-                    <Text style={styles.buttonText}>{editingId ? 'Update' : 'Add'}</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                    style={styles.cancelButton}
-                    onPress={() => {
-                        resetForm();
-                        setIsFormVisible(false);
-                    }}
-                >
-                    <Text style={styles.buttonText}>Cancel</Text>
-                </TouchableOpacity>
+                    <TouchableOpacity
+                        style={styles.cancelButton}
+                        onPress={() => {
+                            resetForm();
+                            setIsFormVisible(false);
+                        }}
+                    >
+                        <Text style={styles.buttonText}>Cancel</Text>
+                    </TouchableOpacity>
+                </View>
             </View>
         </View>
     );
@@ -318,17 +308,23 @@ export default function HomeScreen() {
     );
 
     const renderList = () => (
-        <View style={{ flex: 1 }}>
+        <View style={styles.container}>
+            <Text style={styles.title}>Applications</Text>
+
             <TouchableOpacity style={styles.addButton} onPress={openFormForAdd}>
                 <Text style={styles.addButtonText}>+ Add Application</Text>
             </TouchableOpacity>
 
-            <TextInput
-                placeholder="Search by company or position"
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                style={[styles.input, { marginBottom: 16 }]}
-            />
+            <View style={styles.searchContainer}>
+                <Feather name="search" size={20} color="#999" style={styles.searchIcon} />
+                <TextInput
+                    placeholder="Search"
+                    placeholderTextColor="#999"
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                    style={styles.searchInput}
+                />
+            </View>
 
             <View style={styles.sortFilterRow}>
                 <TouchableOpacity
@@ -338,7 +334,8 @@ export default function HomeScreen() {
                         setSortDropdownVisible(false);
                     }}
                 >
-                    <Text style={styles.sortFilterText}>Filter: {filterStatus}</Text>
+                    <Feather name="filter" size={16} color="#333" style={styles.sortFilterIcon} />
+                    <Text style={styles.sortFilterText}>{filterStatus}</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -348,8 +345,9 @@ export default function HomeScreen() {
                         setFilterDropdownVisible(false);
                     }}
                 >
+                    <Feather name="sliders" size={16} color="#333" style={styles.sortFilterIcon} />
                     <Text style={styles.sortFilterText}>
-                        Sort: {sortBy === 'date' ? 'Date Applied' : 'Company'}
+                        {sortBy === 'date' ? 'Date Applied' : 'Company'}
                     </Text>
                 </TouchableOpacity>
             </View>
@@ -361,7 +359,7 @@ export default function HomeScreen() {
                 <Text style={styles.emptyText}>No applications found.</Text>
             ) : (
                 <FlatList
-                        data={filteredSortedSearchedApps}
+                    data={filteredSortedSearchedApps}
                     keyExtractor={(item) => item.id}
                     renderItem={({ item }) => (
                         <Swipeable renderRightActions={() => renderSwipeActions(item)}>
@@ -378,27 +376,37 @@ export default function HomeScreen() {
                         </Swipeable>
                     )}
                     style={{ marginTop: 10 }}
+                    contentContainerStyle={{ paddingBottom: 20 }}
                 />
             )}
         </View>
     );
 
-    return <SafeAreaView style={styles.safeArea}>{isFormVisible ? renderForm() : renderList()}</SafeAreaView>;
+    return (
+        <SafeAreaView style={styles.safeArea}>
+            {isFormVisible ? renderForm() : renderList()}
+        </SafeAreaView>
+    );
 }
 
 const styles = StyleSheet.create({
-    safeArea: { flex: 1, backgroundColor: '#f9f9f9', padding: 16 },
-    title: { fontSize: 22, fontWeight: 'bold', marginBottom: 16, textAlign: 'center' },
+    safeArea: { flex: 1, backgroundColor: '#f9f9f9' },
+    container: { flex: 1, padding: 20 },
+    title: { fontSize: 28, fontWeight: 'bold', marginBottom: 20, textAlign: 'center', color: '#111' },
+
     addButton: {
         backgroundColor: '#007AFF',
         paddingVertical: 12,
         borderRadius: 8,
         alignItems: 'center',
-        marginBottom: 10,
+        marginBottom: 12,
     },
     addButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 18 },
+
     emptyText: { textAlign: 'center', marginTop: 40, fontSize: 16, color: '#666' },
-    form: { backgroundColor: '#fff', padding: 16, borderRadius: 8 },
+
+    form: { backgroundColor: '#fff', padding: 16, borderRadius: 12, elevation: 3, shadowColor: '#000', shadowOpacity: 0.1, shadowOffset: { width: 0, height: 2 }, shadowRadius: 6 },
+
     input: {
         borderWidth: 1,
         borderColor: '#ccc',
@@ -408,9 +416,11 @@ const styles = StyleSheet.create({
         backgroundColor: '#fff',
     },
     notesInput: { height: 60 },
+
     row: { flexDirection: 'row', justifyContent: 'space-between' },
     flex1: { flex: 1 },
     label: { fontWeight: '600', marginBottom: 6 },
+
     statusButton: {
         borderWidth: 1,
         borderColor: '#ccc',
@@ -420,6 +430,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#fff',
     },
     statusButtonText: { fontSize: 16, color: '#000' },
+
     dateButton: {
         padding: 12,
         backgroundColor: '#007AFF',
@@ -427,6 +438,7 @@ const styles = StyleSheet.create({
         marginBottom: 12,
     },
     dateButtonText: { color: '#fff', fontWeight: 'bold', textAlign: 'center' },
+
     buttonRow: { flexDirection: 'row', justifyContent: 'space-between' },
     saveButton: {
         padding: 12,
@@ -443,37 +455,33 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     buttonText: { color: '#fff', fontWeight: 'bold' },
+
     card: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         padding: 16,
-        marginBottom: 10,
+        marginBottom: 12,
         backgroundColor: '#fff',
-        borderRadius: 8,
+        borderRadius: 12,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 2,
+        shadowRadius: 6,
+        elevation: 3,
     },
     cardTitle: { fontWeight: 'bold', fontSize: 16 },
-    modalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.3)',
-        justifyContent: 'center',
-        paddingHorizontal: 40,
-    },
+
     dropdownWrapper: {
         position: 'relative',
         width: '100%',
+        zIndex: 1000,
+        marginBottom: 8,
     },
-
     dropdownContainer: {
         position: 'absolute',
         top: '100%',
         left: 0,
         right: 0,
-        zIndex: 1000,
         backgroundColor: '#fff',
         borderRadius: 8,
         shadowColor: '#000',
@@ -490,23 +498,12 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         backgroundColor: '#fff',
     },
-    dropdownItem: {
-        padding: 12,
-    },
-    dropdownItemSelected: {
-        backgroundColor: '#007AFF',
-    },
-    dropdownItemText: {
-        fontSize: 16,
-    },
-    dropdownItemTextSelected: {
-        color: '#fff',
-        fontWeight: 'bold',
-    },
-    actionsContainer: {
-        flexDirection: 'row',
-        height: '100%',
-    },
+    dropdownItem: { padding: 12 },
+    dropdownItemSelected: { backgroundColor: '#007AFF' },
+    dropdownItemText: { fontSize: 16 },
+    dropdownItemTextSelected: { color: '#fff', fontWeight: 'bold' },
+
+    actionsContainer: { flexDirection: 'row', height: '100%' },
     actionButton: {
         width: 60,
         justifyContent: 'center',
@@ -515,20 +512,44 @@ const styles = StyleSheet.create({
         marginVertical: '0%',
         borderRadius: 8,
     },
+
     sortFilterRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         marginBottom: 10,
     },
     sortFilterButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
         flex: 1,
         padding: 10,
         borderRadius: 8,
         backgroundColor: '#eee',
         marginHorizontal: 4,
     },
+    sortFilterIcon: {
+        marginRight: 6,
+    },
     sortFilterText: {
-        textAlign: 'center',
         fontWeight: '600',
+        color: '#333',
+    },
+    searchContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#fff',
+        borderWidth: 1,
+        borderColor: '#ccc',
+        borderRadius: 8,
+        paddingHorizontal: 10,
+        marginBottom: 16,
+    },
+    searchIcon: {
+        marginRight: 8,
+    },
+    searchInput: {
+        flex: 1,
+        paddingVertical: 8,
+        fontSize: 16,
     },
 });
